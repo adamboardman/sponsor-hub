@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <link rel="manifest" href="public/manifest.json">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+    <link rel="stylesheet" href="public/sponsor-hub.css">
+    <title>Gemian GitHub Sponsors Survey</title>
+</head>
+<body>
+<noscript>
+    You need to enable JavaScript to run this app.
+</noscript>
+<div id="elm"></div>
+<script src="public/elm.js"></script>
+<script type="text/javascript">
+    const tokenKey = "token";
+    const expireKey = "expire";
+    const token = localStorage.getItem(tokenKey);
+    const expire = localStorage.getItem(expireKey);
+    const flags = { token: token, expire: expire };
+
+    const app = Elm.Main.init({
+          node: document.getElementById('elm'),
+          flags: flags
+      });
+
+    app.ports.storeToken.subscribe(function(val) {
+
+        if (val === null) {
+            localStorage.removeItem(tokenKey);
+        } else {
+            localStorage.setItem(tokenKey, val);
+        }
+
+        // Report that the new session was stored successfully.
+        setTimeout(function() { app.ports.onStoreTokenChange.send(val); }, 0);
+    });
+
+    app.ports.storeExpire.subscribe(function(val) {
+
+        if (val === null) {
+            localStorage.removeItem(expireKey);
+        } else {
+            localStorage.setItem(expireKey, val);
+        }
+
+        // Report that the new session was stored successfully.
+        setTimeout(function() { app.ports.onStoreExpireChange.send(val); }, 0);
+    });
+
+    // Whenever localStorage changes in another tab, report it if necessary.
+    window.addEventListener("storage", function(event) {
+        if (event.storageArea === localStorage) {
+            if (event.key === tokenKey) {
+                app.ports.onStoreTokenChange.send(event.newValue);
+            }
+            if (event.key === expireKey) {
+                app.ports.onStoreExpireChange.send(event.newValue);
+            }
+        }
+    }, false);
+</script>
+</body>
+</html>

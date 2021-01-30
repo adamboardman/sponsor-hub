@@ -1,0 +1,16 @@
+{
+  "name": "sponsor-hub",
+  "version": "1.0.0",
+  "description": "A place for github sponsors to provide feedback",
+  "dependencies": {
+    "elm": "^0.19.1-4",
+    "elm-format": "^0.8.4",
+    "elm-test": "^0.19.1-revision5",
+    "uglify-js": "^3.12.5"
+  },
+  "scripts": {},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/adamboardman/sponsor-hub.git"
+  }
+}

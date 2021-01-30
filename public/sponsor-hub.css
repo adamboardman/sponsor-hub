@@ -1,0 +1,81 @@
+.bg-light {
+    background-color: #43B02A !important;
+}
+.navbar-light .navbar-brand {
+    color: #f8f9fa;
+}
+.navbar-light .navbar-nav .nav-link {
+    color: #f8f9fa;
+}
+.navbar {
+    border-radius: 0.25rem;
+    margin-top: 1rem;
+}
+.selector {
+    display: inline-block;
+    vertical-align: middle;
+}
+.selector ul.toggleOptions {
+    margin: 0;
+    padding: 0;
+    display: table;
+}
+.selector ul.toggleOptions li {
+    padding: 0;
+    margin: 0;
+    list-style-type: none;
+    display: table-cell;
+    border: 1px solid #aaaaaa;
+    border-left: none;
+}
+.selector ul.toggleOptions li.selected {
+    background-color: #43B02A;
+    color: white;
+}
+.selector ul.toggleOptions li {
+    padding: 1px;
+    margin: 0;
+    list-style-type: none;
+    display: table-cell;
+    border: 1px solid #aaaaaa;
+    border-left: none;
+}
+.selector ul.toggleOptions li.selected button {
+    background-color: #43B02A;
+    color: white;
+}
+.selector ul.toggleOptions li button {
+    background-color: #eeeeee;
+    color: #aaaaaa;
+    padding: 8px 10px;
+    margin: 0;
+    outline: none;
+    border: none !important;
+    width: 100%;
+}
+.selector ul.toggleOptions li:first-child {
+    border-top-left-radius: 5px;
+    border-bottom-left-radius: 5px;
+    border-left: 1px solid #aaaaaa;
+}
+.selector ul.toggleOptions li:last-child {
+    border-top-right-radius: 5px;
+    border-bottom-right-radius: 5px;
+}
+.form-control-label {
+    font-weight: bold;
+}
+.form-group {
+    background-color: #eeeeee;
+    border-radius: 0.25rem;
+    padding: 0.25rem;
+}
+.clarification {
+    font-size: 0.85rem;
+    margin-bottom: 0.7rem;
+}
+.example {
+    font-size: 0.7rem;
+    margin-bottom: 0.5rem;
+    font-style: italic;
+}
