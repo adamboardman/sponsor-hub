@@ -278,7 +278,7 @@ func SendEmail(emailAddress string, verificationKey string, invite string, descr
 	LogFatalError(err)
 	defer wc.Close()
 
-	subject := "Think Globally Confirm Email Address"
+	subject := "Sponsor-Hub Confirm Email Address"
 	opening := "Thanks for signing up for a"
 	middling := ""
 	middlingHTML := ""
@@ -293,8 +293,8 @@ func SendEmail(emailAddress string, verificationKey string, invite string, descr
 
 	buf := bytes.NewBufferString("" +
 		"Subject: " + subject + "\r\n" +
-		"From: ThinkGlobally <no-reply@thinkglobally.org>\r\n" +
-		"Reply-To: ThinkGlobally <no-reply@thinkglobally.org>\r\n" +
+		"From: Sponsor-Hub <no-reply@thinkglobally.org>\r\n" +
+		"Reply-To: Sponsor-Hub <no-reply@thinkglobally.org>\r\n" +
 		"MIME-Version: 1.0\r\n" +
 		"Content-Type: multipart/alternative; boundary=\"" + boundary + "\"\r\n" +
 		"\r\n" +
@@ -305,7 +305,8 @@ func SendEmail(emailAddress string, verificationKey string, invite string, descr
 		opening + " Sponsor Hub\r\n" +
 		"\r\n" +
 		middling +
-		"Please click on the following link to confirm your email address " + ending + confirmUrl + "\r\n" +
+		"Please click on the following link to confirm your email address " + ending +
+		"\r\n" + confirmUrl + "\r\n" +
 		"\r\n" +
 		"--" + boundary + "\r\n" +
 		"Content-Type: text/html; charset=utf-8\r\n" +
@@ -319,7 +320,8 @@ func SendEmail(emailAddress string, verificationKey string, invite string, descr
 		"<p>" + opening + " Sponsor-hub account</p>\r\n" +
 		"\r\n" +
 		middlingHTML +
-		"<p>Please click on the following link to confirm your email address " + ending + "<a href=" + confirmUrl + ">" + confirmUrl + "</a></p>\r\n" +
+		"<p>Please click on the following link to confirm your email address " + ending + "</p>" +
+		"<p><a href=" + confirmUrl + ">" + confirmUrl + "</a></p>\r\n" +
 		"</body>\r\n" +
 		"</html>\r\n" +
 		"\r\n" +
