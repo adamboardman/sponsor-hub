@@ -53,7 +53,7 @@ Check that public/index.html is selecting elm.js rather than elm.min.js before o
 To compile on the server:
 ```
 npm install
-node_modules/elm/bin/elm make client/Main.elm --optimize --output=public/elm.js
+node_modules/elm/bin/elm make elm-client/Main.elm --optimize --output=public/elm.js
 node_modules/uglify-js/bin/uglifyjs public/elm.js --compress 'pure_funcs="F2,F3,F4,F5,F6,F7,F8,F9,A2,A3,A4,A5,A6,A7,A8,A9",pure_getters,keep_fargs=false,unsafe_comps,unsafe' | node_modules/uglify-js/bin/uglifyjs --mangle --output public/elm.min.js
 go build main.go
 ./main

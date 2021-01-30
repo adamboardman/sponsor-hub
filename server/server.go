@@ -31,12 +31,17 @@ func (a *WebApp) Init(dbName string) {
 
 	addWebAppStaticFiles(router)
 	addApiRoutes(a, router)
-	//addPhotoRoutes(a, router)
 	addDefaultRouteToWebApp(router)
 }
 
 func addApiRoutes(a *WebApp, router *gin.Engine) {
 	api := router.Group("/api")
+	addApiRoutesToApi(a, api)
+	sponsorHubApi := router.Group("/sponsor-hub/api")
+	addApiRoutesToApi(a, sponsorHubApi)
+}
+
+func addApiRoutesToApi(a *WebApp, api *gin.RouterGroup) {
 	api.GET("/", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"message": "root of the API does nothing, next?"})
 	})
@@ -92,6 +97,7 @@ func (a *WebApp) Run(addr string) {
 
 func addWebAppStaticFiles(router *gin.Engine) {
 	router.Static("/public", "./public")
+	router.Static("/sponsor-hub/public", "./public")
 	router.Use(static.Serve("/dist", static.LocalFile("./dist", true)))
 }
 

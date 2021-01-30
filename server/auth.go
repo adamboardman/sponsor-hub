@@ -76,7 +76,7 @@ func (a *WebApp) InitAuth(group *gin.RouterGroup) *jwt.GinJWTMiddleware {
 	}
 
 	authMiddleware, err := jwt.New(&jwt.GinJWTMiddleware{
-		Realm:       "thinkglobally",
+		Realm:       "sponsor-hub",
 		Key:         secretKey,
 		Timeout:     time.Hour * 24 * 7,
 		MaxRefresh:  time.Hour,
