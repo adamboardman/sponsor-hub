@@ -194,10 +194,10 @@ survey token (SurveyTrimmed form) =
         url =
             case form.id of
                 0 ->
-                    "/api/surveys"
+                    "api/surveys"
 
                 _ ->
-                    "/api/surveys/" ++ String.fromInt form.id
+                    "api/surveys/" ++ String.fromInt form.id
     in
     Http.request
         { method = method

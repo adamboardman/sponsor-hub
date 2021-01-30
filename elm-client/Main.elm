@@ -490,7 +490,7 @@ loadUser : String -> Int -> Cmd Msg
 loadUser token userId =
     Http.request
         { method = "GET"
-        , url = "/api/users/" ++ String.fromInt userId
+        , url = "api/users/" ++ String.fromInt userId
         , expect = Http.expectJson LoadedUser userDecoder
         , headers = [ authHeader token ]
         , body = emptyBody
