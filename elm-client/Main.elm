@@ -8,15 +8,16 @@ import Html exposing (Html, div, h1, text)
 import Html.Attributes exposing (href)
 import Http exposing (Error(..), emptyBody)
 import Loading exposing (LoadingState(..))
-import Login exposing (loggedIn, login, loginUpdateForm, loginValidate, pageLogin)
+import Login exposing (loggedIn, login, loginUpdateForm, loginValidate, pageLogin, userIsAdmin)
 import Ports exposing (storeExpire, storeToken)
 import Register exposing (pageRegister, register, registerUpdateForm, registerValidate)
 import Survey exposing (pageSurvey, survey, surveyUpdateForm, surveyValidate)
+import SurveysList exposing (loadSurveys, pageSurveysList)
 import Task
 import Time
 import Types exposing (..)
 import Url exposing (Url)
-import Url.Parser as UrlParser exposing ((</>), (<?>), Parser, s, top)
+import Url.Parser as UrlParser exposing ((</>), (<?>), Parser, s, int, top)
 import Url.Parser.Query as Query
 
 
@@ -65,9 +66,10 @@ init flags url key =
                 , session = { loginExpire = Maybe.withDefault "" flags.expire, loginToken = Maybe.withDefault "" flags.token }
                 , apiActionResponse = { status = 0, resourceId = 0, resourceIds = [] }
                 , loggedInUser = emptyUser
-                , surveyForm = emptySurveyForm
+                , survey = emptySurvey
                 , timeZone = Time.utc
                 , time = Time.millisToPosix 0
+                , surveysList = []
                 }
     in
     ( model
@@ -107,9 +109,12 @@ menu model =
                 |> Navbar.container
                 |> Navbar.brand [ href (urlForPage Home) ] [ text "Sponsor-Hub" ]
                 |> Navbar.items
-                    [ if loggedIn model then
+                    [ if userIsAdmin model then
+                        Navbar.itemLink [ href (urlForPage SurveysList) ] [ text "Surveys" ]
+                      else
+                        Navbar.itemLink [ href "" ] [ text "" ]
+                    , if loggedIn model then
                         Navbar.itemLink [ href (urlForPage Logout) ] [ text "Logout" ]
-
                       else
                         Navbar.itemLink [ href (urlForPage Login) ] [ text "Login" ]
                     ]
@@ -139,8 +144,14 @@ mainContent model =
             Register email _ ->
                 pageRegister model email
 
-            Survey ->
+            Surveys _ ->
                 pageSurvey model
+
+            SurveysEdit _ ->
+                pageSurvey model
+
+            SurveysList ->
+                pageSurveysList model
 
             NotFound ->
                 pageNotFound
@@ -233,7 +244,7 @@ update msg model =
                     )
 
         SubmittedSurveyForm ->
-            case surveyValidate model.surveyForm of
+            case surveyValidate model.survey of
                 Ok validForm ->
                     ( { model | problems = [], saving = Loading.On }
                     , survey model.session.loginToken validForm
@@ -267,6 +278,9 @@ update msg model =
 
         EnteredSurveyPriorities priorities ->
             surveyUpdateForm (\form -> { form | priorities = priorities }) model
+
+        EnteredSurveyIssues issues ->
+            surveyUpdateForm (\form -> { form | issues = issues }) model
 
         EnteredSurveyCommsFrequency commsFrequency ->
             surveyUpdateForm (\form -> { form | comms_frequency = commsFrequency }) model
@@ -313,12 +327,22 @@ update msg model =
             )
 
         LoadedSurvey (Err error) ->
-            ( { model | surveyForm = emptySurveyForm, loading = Loading.Off, session = sessionGivenAuthError error model }
+            ( { model | survey = emptySurvey, loading = Loading.Off, session = sessionGivenAuthError error model }
             , Cmd.none
             )
 
         LoadedSurvey (Ok res) ->
-            ( { model | surveyForm = res, loading = Loading.Off }
+            ( { model | survey = res, loading = Loading.Off }
+            , Cmd.none
+            )
+
+        LoadedSurveys (Err error) ->
+            ( { model | loading = Loading.Off, session = sessionGivenAuthError error model }
+            , Cmd.none
+            )
+
+        LoadedSurveys (Ok res) ->
+            ( { model | surveysList = res, loading = Loading.Off }
             , Cmd.none
             )
 
@@ -344,7 +368,7 @@ update msg model =
                         transform =
                             \form -> { form | id = res.resourceId }
                     in
-                    ( { model | apiActionResponse = res, saving = Loading.Off, surveyForm = transform model.surveyForm }, Cmd.none )
+                    ( { model | apiActionResponse = res, saving = Loading.Off, survey = transform model.survey }, Cmd.none )
 
                 Err error ->
                     let
@@ -402,9 +426,6 @@ fromPair ( field, errors ) =
 urlForPage : Page -> String
 urlForPage page =
     case page of
-        Survey ->
-            "#"
-
         Home ->
             "#"
 
@@ -416,6 +437,15 @@ urlForPage page =
 
         Register _ _ ->
             "#register"
+
+        Surveys id ->
+            "#surveys/" ++ String.fromInt id
+
+        SurveysEdit id ->
+            "#surveys/" ++ String.fromInt id ++ "/edit"
+
+        SurveysList ->
+            "#surveys"
 
         NotFound ->
             "#"
@@ -441,13 +471,22 @@ urlUpdate url model =
                     }
 
                 Home ->
-                    { model | loading = On }
+                    { model | page = page, loading = On }
 
                 _ ->
                     { model | page = page }
             , case page of
                 Home ->
-                    Cmd.batch [ loadSurvey model.session.loginToken ]
+                    Cmd.batch [ loadSurvey model.session.loginToken 0 ]
+
+                Surveys id ->
+                    loadSurvey model.session.loginToken id
+
+                SurveysEdit id ->
+                    loadSurvey model.session.loginToken id
+
+                SurveysList ->
+                    loadSurveys model
 
                 Login ->
                     Cmd.none
@@ -461,8 +500,6 @@ urlUpdate url model =
                 NotFound ->
                     Cmd.none
 
-                Survey ->
-                    loadSurvey model.session.loginToken
             )
 
 
@@ -479,6 +516,10 @@ routeParser =
         , UrlParser.map Login (s "login")
         , UrlParser.map Logout (s "logout")
         , UrlParser.map Register (s "register" <?> Query.string "email" <?> Query.string "verification")
+        , UrlParser.map Surveys (s "surveys" </> int)
+        , UrlParser.map SurveysEdit (s "surveys" </> int </> s "edit")
+        , UrlParser.map SurveysList (s "surveys")
+        , UrlParser.map Home (s "")
         ]
 
 
@@ -499,11 +540,11 @@ loadUser token userId =
         }
 
 
-loadSurvey : String -> Cmd Msg
-loadSurvey token =
+loadSurvey : String -> Int -> Cmd Msg
+loadSurvey token id =
     Http.request
         { method = "GET"
-        , url = "api/surveys/0"
+        , url = "api/surveys/"++ String.fromInt id
         , expect = Http.expectJson LoadedSurvey surveyDecoder
         , headers = [ authHeader token ]
         , body = emptyBody

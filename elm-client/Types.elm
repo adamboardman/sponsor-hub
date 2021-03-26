@@ -5,7 +5,7 @@ import Browser exposing (UrlRequest)
 import Browser.Navigation as Nav
 import FormatNumber.Locales exposing (Decimals(..), Locale)
 import Http
-import Json.Decode as Decode exposing (Decoder, at, int, list, map6, string)
+import Json.Decode as Decode exposing (Decoder, int, list, string)
 import Json.Decode.Pipeline exposing (optional, required)
 import Loading
 import Time exposing (Month)
@@ -21,12 +21,13 @@ type alias Model =
     , problems : List Problem
     , loginForm : LoginForm
     , registerForm : RegisterForm
-    , surveyForm : SurveyForm
+    , survey : Survey
     , session : Session
     , apiActionResponse : ApiActionResponse
     , loggedInUser : User
     , timeZone : Time.Zone
     , time : Time.Posix
+    , surveysList : List Survey
     }
 
 
@@ -35,7 +36,9 @@ type Page
     | Login
     | Logout
     | Register (Maybe String) (Maybe String)
-    | Survey
+    | Surveys Int
+    | SurveysEdit Int
+    | SurveysList
     | NotFound
 
 
@@ -60,6 +63,18 @@ type alias User =
     }
 
 
+type alias Survey =
+    { id : Int
+    , user_id : Int
+    , name : String
+    , github_id : String
+    , priorities : String
+    , issues : String
+    , comms_frequency : String
+    , privacy : String
+    }
+
+
 type alias Configuration =
     { authorizationEndpoint : Url
     , clientId : String
@@ -80,15 +95,6 @@ type alias RegisterForm =
     , verification : String
     }
 
-
-type alias SurveyForm =
-    { id : Int
-    , name : String
-    , github_id : String
-    , priorities : String
-    , comms_frequency : String
-    , privacy : String
-    }
 
 
 type ValidatedField
@@ -119,13 +125,15 @@ type Msg
     | EnteredSurveyName String
     | EnteredSurveyGitHubUserId String
     | EnteredSurveyPriorities String
+    | EnteredSurveyIssues String
     | EnteredSurveyCommsFrequency String
     | EnteredSurveyPrivacy String
     | CompletedLogin (Result Http.Error Session)
     | GotRegisterJson (Result Http.Error ApiActionResponse)
     | LoadedUser (Result Http.Error User)
-    | LoadedSurvey (Result Http.Error SurveyForm)
+    | LoadedSurvey (Result Http.Error Survey)
     | GotUpdateSurveyJson (Result Http.Error ApiActionResponse)
+    | LoadedSurveys (Result Http.Error (List Survey))
     | AdjustTimeZone Time.Zone
     | TimeTick Time.Posix
 
@@ -252,12 +260,14 @@ emptySession =
     { loginExpire = "", loginToken = "" }
 
 
-emptySurveyForm : SurveyForm
-emptySurveyForm =
+emptySurvey : Survey
+emptySurvey =
     { id = 0
+    , user_id = 0
     , name = ""
     , github_id = ""
     , priorities = ""
+    , issues = ""
     , comms_frequency = ""
     , privacy = ""
     }
@@ -289,15 +299,17 @@ userDecoder =
         |> optional "Permissions" int 0
 
 
-surveyDecoder : Decoder SurveyForm
+surveyDecoder : Decoder Survey
 surveyDecoder =
-    map6 SurveyForm
-        (at [ "ID" ] int)
-        (at [ "Name" ] string)
-        (at [ "GitHubId" ] string)
-        (at [ "Priorities" ] string)
-        (at [ "CommsFrequency" ] string)
-        (at [ "Privacy" ] string)
+    Decode.succeed Survey
+        |> required "ID" int
+        |> optional "UserId" int 0
+        |> required "Name" string
+        |> required "GitHubId" string
+        |> required "Priorities" string
+        |> required "Issues" string
+        |> required "CommsFrequency" string
+        |> required "Privacy" string
 
 
 posixTime : Decode.Decoder Time.Posix

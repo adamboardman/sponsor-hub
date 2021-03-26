@@ -5,13 +5,13 @@ import Bootstrap.Form as Form
 import Bootstrap.Form.Input as Input
 import Bootstrap.Form.Textarea as Textarea
 import FormValidation exposing (viewProblem)
-import Html exposing (Html, div, h1, p, text, ul)
-import Html.Attributes exposing (class, for)
+import Html exposing (Html, a, div, h1, p, text, ul)
+import Html.Attributes exposing (class, for, href)
 import Html.Events exposing (onSubmit)
 import Http
 import Json.Encode as Encode
 import Loading exposing (LoadingState(..))
-import Types exposing (ApiActionResponse, Model, Msg(..), Problem(..), SurveyForm, User, ValidatedField(..), apiActionDecoder, authHeader)
+import Types exposing (ApiActionResponse, Model, Msg(..), Problem(..), Survey, User, ValidatedField(..), apiActionDecoder, authHeader)
 
 
 surveyFieldsToValidate : List ValidatedField
@@ -48,7 +48,7 @@ viewSurveyForm model =
                 [ Input.id "name"
                 , Input.placeholder "Name"
                 , Input.onInput EnteredSurveyName
-                , Input.value model.surveyForm.name
+                , Input.value model.survey.name
                 ]
             , Form.invalidFeedback [] [ text "Please enter your name" ]
             ]
@@ -59,22 +59,38 @@ viewSurveyForm model =
                 [ Input.id "gitHubId"
                 , Input.placeholder "UserID"
                 , Input.onInput EnteredSurveyGitHubUserId
-                , Input.value model.surveyForm.github_id
+                , Input.value model.survey.github_id
                 ]
             , Form.invalidFeedback [] [ text "Please enter your user id" ]
             ]
         , Form.group []
             [ Form.label [ for "priorities" ] [ text "Priorities" ]
-            , p [ class "clarification" ] [ text "Free form text for you to indicate any preference you might have for priorities for future work, it could be an ordered list of targets, or percentage based." ]
+            , p [ class "clarification" ] [ text "Free form text for you to indicate any preference you might have for priorities for future work, it could be an ordered list of targets, or percentage based. (Optional)" ]
             , p [ class "example" ] [ text "eg: 1. Gemian on Cosmo Sleep battery performance, 2. Cosmo Bluetooth, 3. Login with GitHub id to this survey" ]
             , p [ class "example" ] [ text "or: 40% Gemian on Cosmo, 20% Back porting improvements to Gemini, 40% Mainline Kernel efforts" ]
             , Textarea.textarea
                 [ Textarea.id "priorities"
                 , Textarea.rows 4
                 , Textarea.onInput EnteredSurveyPriorities
-                , Textarea.value model.surveyForm.priorities
+                , Textarea.value model.survey.priorities
                 ]
             , Form.invalidFeedback [] [ text "Please enter your priorities" ]
+            ]
+        , Form.group []
+            [ Form.label [ for "issues" ] [ text "Issues" ]
+            , p [ class "clarification" ] [ text "Please raise issues for each of your prioritised items. On the "
+            , a [ href "https://github.com/gemian/gemian/issues" ][ text "GitHub Issues Tracker"]
+            , text ", then use the same prioritisation schema as above. (Optional)"
+            ]
+            , p [ class "example" ] [ text "eg: 1. https://github.com/gemian/gemian/issues/3, 2. https://github.com/gemian/gemian/issues/5" ]
+            , p [ class "example" ] [ text "or: 60% https://github.com/gemian/gemian/issues/3, 40% https://github.com/gemian/gemian/issues/5" ]
+            , Textarea.textarea
+                [ Textarea.id "issues"
+                , Textarea.rows 4
+                , Textarea.onInput EnteredSurveyIssues
+                , Textarea.value model.survey.issues
+                ]
+            , Form.invalidFeedback [] [ text "Please list bug tracker issues" ]
             ]
         , Form.group []
             [ Form.label [ for "commsFrequency" ] [ text "Communications Frequency" ]
@@ -84,7 +100,7 @@ viewSurveyForm model =
             , Textarea.textarea
                 [ Textarea.id "commsFrequency"
                 , Textarea.onInput EnteredSurveyCommsFrequency
-                , Textarea.value model.surveyForm.comms_frequency
+                , Textarea.value model.survey.comms_frequency
                 ]
             , Form.invalidFeedback [] [ text "Please enter your communications frequency preferences" ]
             ]
@@ -96,7 +112,7 @@ viewSurveyForm model =
             , Textarea.textarea
                 [ Textarea.id "commsFrequency"
                 , Textarea.onInput EnteredSurveyPrivacy
-                , Textarea.value model.surveyForm.privacy
+                , Textarea.value model.survey.privacy
                 ]
             , Form.invalidFeedback [] [ text "Please enter your communications frequency preferences" ]
             ]
@@ -109,12 +125,12 @@ viewSurveyForm model =
         ]
 
 
-surveyUpdateForm : (SurveyForm -> SurveyForm) -> Model -> ( Model, Cmd Msg )
+surveyUpdateForm : (Survey -> Survey) -> Model -> ( Model, Cmd Msg )
 surveyUpdateForm transform model =
-    ( { model | surveyForm = transform model.surveyForm }, Cmd.none )
+    ( { model | survey = transform model.survey }, Cmd.none )
 
 
-surveyValidate : SurveyForm -> Result (List Problem) SurveyTrimmedForm
+surveyValidate : Survey -> Result (List Problem) SurveyTrimmedForm
 surveyValidate form =
     let
         trimmedForm =
@@ -151,16 +167,18 @@ validateField (SurveyTrimmed form) field =
 
 
 type SurveyTrimmedForm
-    = SurveyTrimmed SurveyForm
+    = SurveyTrimmed Survey
 
 
-surveyTrimFields : SurveyForm -> SurveyTrimmedForm
+surveyTrimFields : Survey -> SurveyTrimmedForm
 surveyTrimFields form =
     SurveyTrimmed
         { id = form.id
+        , user_id =  form.user_id
         , name = String.trim form.name
         , github_id = String.trim form.github_id
         , priorities = String.trim form.priorities
+        , issues = String.trim form.issues
         , comms_frequency = String.trim form.comms_frequency
         , privacy = String.trim form.privacy
         }
@@ -178,6 +196,7 @@ survey token (SurveyTrimmed form) =
                 [ ( "Name", Encode.string form.name )
                 , ( "GitHubId", Encode.string form.github_id )
                 , ( "Priorities", Encode.string form.priorities )
+                , ( "Issues", Encode.string form.issues )
                 , ( "CommsFrequency", Encode.string form.comms_frequency )
                 , ( "Privacy", Encode.string form.privacy )
                 ]

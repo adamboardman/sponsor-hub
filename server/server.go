@@ -50,7 +50,7 @@ func addApiRoutesToApi(a *WebApp, api *gin.RouterGroup) {
 	api.GET("/users/:userID", a.JwtMiddleware.MiddlewareFunc(), LoadUser)
 	api.PUT("/users/:userID", a.JwtMiddleware.MiddlewareFunc(), UpdateUser)
 	api.GET("/surveys", a.JwtMiddleware.MiddlewareFunc(), AdminPermissionsRequired(), SurveysList)
-	api.GET("/surveys/:surveyID",a.JwtMiddleware.MiddlewareFunc(), LoadSurvey)
+	api.GET("/surveys/:surveyID", a.JwtMiddleware.MiddlewareFunc(), LoadSurvey)
 	api.POST("/surveys", a.JwtMiddleware.MiddlewareFunc(), AddSurvey)
 	api.PUT("/surveys/:surveyID", a.JwtMiddleware.MiddlewareFunc(), UpdateSurvey)
 }
@@ -69,11 +69,11 @@ func AdminPermissionsRequiredImpl(c *gin.Context) {
 		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"statusText": "User not found"})
 		return
 	}
-	if !(user.Permissions >= store.UserPermissionsEditor) {
-		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"statusText": "User is not an editor"})
+	if !(user.Permissions >= store.UserPermissionsAdmin) {
+		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"statusText": "User is not an admin"})
 		return
 	}
-	c.Next();
+	c.Next()
 }
 
 func Exists(name string) bool {
@@ -92,7 +92,7 @@ func addDefaultRouteToWebApp(router *gin.Engine) {
 }
 
 func (a *WebApp) Run(addr string) {
-	_ = a.Router.Run(addr);
+	_ = a.Router.Run(addr)
 }
 
 func addWebAppStaticFiles(router *gin.Engine) {
@@ -169,17 +169,17 @@ func readJSONIntoUser(id uint, c *gin.Context) (*store.User, error) {
 }
 
 type UserJSON struct {
-	Name string
-	Email     string
+	Name  string
+	Email string
 }
 
 func SurveysList(c *gin.Context) {
 	c.Header("Content-Type", "application/json")
-	concepts, err := App.Store.ListSurveys()
+	surveys, err := App.Store.ListSurveys()
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"statusText": fmt.Sprintf("Surveys not found")})
 	} else {
-		c.JSON(http.StatusOK, concepts)
+		c.JSON(http.StatusOK, surveys)
 	}
 }
 
@@ -205,8 +205,11 @@ func LoadSurvey(c *gin.Context) {
 	}
 
 	if survey.UserId != loggedInUserId {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText": fmt.Sprintf("Attempt to load someone elses survey")})
-		return
+		var currentUser, err = App.Store.LoadUserAsSelf(loggedInUserId, loggedInUserId);
+		if err == nil && currentUser.Permissions != store.UserPermissionsAdmin {
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText": fmt.Sprintf("Attempt to load someone elses survey")})
+			return
+		}
 	}
 
 	json := SurveyJSON{}
@@ -214,6 +217,7 @@ func LoadSurvey(c *gin.Context) {
 	json.Name = survey.Name
 	json.GitHubId = survey.GitHubId
 	json.Priorities = survey.Priorities
+	json.Issues = survey.Issues
 	json.CommsFrequency = survey.CommsFrequency
 	json.Privacy = survey.Privacy
 	c.JSON(http.StatusOK, json)
@@ -242,7 +246,7 @@ func AddSurvey(c *gin.Context) {
 }
 
 func UpdateSurvey(c *gin.Context) {
-	surveyId, err := strconv.Atoi(c.Param("surveyID"));
+	surveyId, err := strconv.Atoi(c.Param("surveyID"))
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText": fmt.Sprintf("SurveyID invalid - err: %s", err.Error())})
 		return
@@ -276,7 +280,7 @@ func UpdateSurvey(c *gin.Context) {
 	}
 }
 
-func readJSONIntoSurvey(survey *store.Survey, c *gin.Context, forceUpdate bool) (error) {
+func readJSONIntoSurvey(survey *store.Survey, c *gin.Context, forceUpdate bool) error {
 	surveyJSON := SurveyJSON{}
 	err := c.BindJSON(&surveyJSON)
 	if err != nil {
@@ -287,6 +291,7 @@ func readJSONIntoSurvey(survey *store.Survey, c *gin.Context, forceUpdate bool) 
 		survey.Name = surveyJSON.Name
 		survey.GitHubId = surveyJSON.GitHubId
 		survey.Priorities = surveyJSON.Priorities
+		survey.Issues = surveyJSON.Issues
 		survey.CommsFrequency = surveyJSON.CommsFrequency
 		survey.Privacy = surveyJSON.Privacy
 	}
@@ -295,10 +300,11 @@ func readJSONIntoSurvey(survey *store.Survey, c *gin.Context, forceUpdate bool) 
 }
 
 type SurveyJSON struct {
-	ID      uint
-	Name    string
-	GitHubId string
-	Priorities    string
-	CommsFrequency    string
-	Privacy    string
+	ID             uint
+	Name           string
+	GitHubId       string
+	Priorities     string
+	Issues         string
+	CommsFrequency string
+	Privacy        string
 }

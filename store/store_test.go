@@ -72,6 +72,7 @@ func TestStore_SurveyCreation(t *testing.T) {
 			UserId:         user1.ID,
 			GitHubId:       "exampleid",
 			Priorities:     "Simple priorities",
+			Issues:         "github.com/gemian/issues/2",
 			CommsFrequency: "Anything goes",
 			Privacy:        "NayBother",
 		}
@@ -82,6 +83,7 @@ func TestStore_SurveyCreation(t *testing.T) {
 			So(surveyLoaded.UserId, ShouldEqual, survey.UserId)
 			So(surveyLoaded.GitHubId, ShouldEqual, survey.GitHubId)
 			So(surveyLoaded.Priorities, ShouldEqual, survey.Priorities)
+			So(surveyLoaded.Issues, ShouldEqual, survey.Issues)
 			So(surveyLoaded.CommsFrequency, ShouldEqual, survey.CommsFrequency)
 			So(surveyLoaded.Privacy, ShouldEqual, survey.Privacy)
 
@@ -95,6 +97,7 @@ func TestStore_SurveyCreation(t *testing.T) {
 					So(reloadedSurvey.UserId, ShouldEqual, surveyLoaded.UserId)
 					So(reloadedSurvey.GitHubId, ShouldEqual, surveyLoaded.GitHubId)
 					So(reloadedSurvey.Priorities, ShouldEqual, surveyLoaded.Priorities)
+					So(reloadedSurvey.Issues, ShouldEqual, surveyLoaded.Issues)
 					So(reloadedSurvey.CommsFrequency, ShouldEqual, surveyLoaded.CommsFrequency)
 					So(reloadedSurvey.Privacy, ShouldEqual, surveyLoaded.Privacy)
 				})

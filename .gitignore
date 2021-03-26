@@ -1,0 +1,10 @@
+/node_modules
+.idea/
+test-db.db
+secret_key.txt
+postgres_args.txt
+dist/
+main
+elm.js
+elm.min.js
+elm-stuff/

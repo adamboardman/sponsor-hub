@@ -57,6 +57,7 @@ type Survey struct {
 	Name           string
 	GitHubId       string
 	Priorities     string
+	Issues         string
 	CommsFrequency string
 	Privacy        string
 }
