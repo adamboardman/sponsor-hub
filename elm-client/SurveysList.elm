@@ -38,7 +38,7 @@ loadSurveys : Model -> Cmd Msg
 loadSurveys model =
     Http.request
         { method = "GET"
-        , url = "/api/surveys"
+        , url = "api/surveys"
         , expect = Http.expectJson LoadedSurveys surveyListDecoder
         , headers = [ authHeader model.session.loginToken ]
         , body = emptyBody
