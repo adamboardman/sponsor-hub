@@ -5,7 +5,7 @@ import Browser exposing (UrlRequest)
 import Browser.Navigation as Nav
 import FormatNumber.Locales exposing (Decimals(..), Locale)
 import Http
-import Json.Decode as Decode exposing (Decoder, int, list, string)
+import Json.Decode as Decode exposing (Decoder, int, list, string, bool)
 import Json.Decode.Pipeline exposing (optional, required)
 import Loading
 import Time exposing (Month)
@@ -71,6 +71,7 @@ type alias Survey =
     , priorities : String
     , issues : String
     , comms_frequency : String
+    , pre_release : Bool
     , privacy : String
     }
 
@@ -127,6 +128,7 @@ type Msg
     | EnteredSurveyPriorities String
     | EnteredSurveyIssues String
     | EnteredSurveyCommsFrequency String
+    | EnteredSurveyPreRelease Bool
     | EnteredSurveyPrivacy String
     | CompletedLogin (Result Http.Error Session)
     | GotRegisterJson (Result Http.Error ApiActionResponse)
@@ -269,6 +271,7 @@ emptySurvey =
     , priorities = ""
     , issues = ""
     , comms_frequency = ""
+    , pre_release = False
     , privacy = ""
     }
 
@@ -309,6 +312,7 @@ surveyDecoder =
         |> required "Priorities" string
         |> required "Issues" string
         |> required "CommsFrequency" string
+        |> optional "PreRelease" bool False
         |> required "Privacy" string
 
 

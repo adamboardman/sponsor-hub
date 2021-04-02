@@ -219,6 +219,7 @@ func LoadSurvey(c *gin.Context) {
 	json.Priorities = survey.Priorities
 	json.Issues = survey.Issues
 	json.CommsFrequency = survey.CommsFrequency
+	json.PreRelease = survey.PreRelease
 	json.Privacy = survey.Privacy
 	c.JSON(http.StatusOK, json)
 }
@@ -293,6 +294,7 @@ func readJSONIntoSurvey(survey *store.Survey, c *gin.Context, forceUpdate bool) 
 		survey.Priorities = surveyJSON.Priorities
 		survey.Issues = surveyJSON.Issues
 		survey.CommsFrequency = surveyJSON.CommsFrequency
+		survey.PreRelease = surveyJSON.PreRelease
 		survey.Privacy = surveyJSON.Privacy
 	}
 
@@ -306,5 +308,6 @@ type SurveyJSON struct {
 	Priorities     string
 	Issues         string
 	CommsFrequency string
+	PreRelease     bool
 	Privacy        string
 }

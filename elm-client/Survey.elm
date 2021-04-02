@@ -2,6 +2,7 @@ module Survey exposing (..)
 
 import Bootstrap.Button as Button
 import Bootstrap.Form as Form
+import Bootstrap.Form.Checkbox as Checkbox
 import Bootstrap.Form.Input as Input
 import Bootstrap.Form.Textarea as Textarea
 import FormValidation exposing (viewProblem)
@@ -105,16 +106,27 @@ viewSurveyForm model =
             , Form.invalidFeedback [] [ text "Please enter your communications frequency preferences" ]
             ]
         , Form.group []
+            [ Form.label [ for "preRelease" ] [ text "Pre-Release builds" ]
+            , p [ class "clarification" ] [ text "Would you like to be invited (probably by email) to test pre-release builds." ]
+            , Checkbox.checkbox
+                  [ Checkbox.id "preRelease"
+                  , Checkbox.onCheck EnteredSurveyPreRelease
+                  , Checkbox.checked model.survey.pre_release
+                  ]
+                  "Invite me to pre-release builds"
+            , Form.invalidFeedback [] [ text "Please enter your communications frequency preferences" ]
+            ]
+        , Form.group []
             [ Form.label [ for "privacy" ] [ text "Privacy" ]
             , p [ class "clarification" ] [ text "How private do you consider your donation amount to be." ]
             , p [ class "example" ] [ text "from: you should do your best to keep it private" ]
             , p [ class "example" ] [ text "to: I don't mind if people could work it out from viewing totals over time and seeing who recently appeared/disappeared as a sponsor." ]
             , Textarea.textarea
-                [ Textarea.id "commsFrequency"
+                [ Textarea.id "privacy"
                 , Textarea.onInput EnteredSurveyPrivacy
                 , Textarea.value model.survey.privacy
                 ]
-            , Form.invalidFeedback [] [ text "Please enter your communications frequency preferences" ]
+            , Form.invalidFeedback [] [ text "Please enter your privacy preferences" ]
             ]
         , ul [ class "error-messages" ]
             (List.map viewProblem model.problems)
@@ -180,6 +192,7 @@ surveyTrimFields form =
         , priorities = String.trim form.priorities
         , issues = String.trim form.issues
         , comms_frequency = String.trim form.comms_frequency
+        , pre_release = form.pre_release
         , privacy = String.trim form.privacy
         }
 
@@ -198,6 +211,7 @@ survey token (SurveyTrimmed form) =
                 , ( "Priorities", Encode.string form.priorities )
                 , ( "Issues", Encode.string form.issues )
                 , ( "CommsFrequency", Encode.string form.comms_frequency )
+                , ( "PreRelease", Encode.bool form.pre_release )
                 , ( "Privacy", Encode.string form.privacy )
                 ]
                 |> Http.jsonBody

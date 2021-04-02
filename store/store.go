@@ -59,6 +59,7 @@ type Survey struct {
 	Priorities     string
 	Issues         string
 	CommsFrequency string
+	PreRelease     bool
 	Privacy        string
 }
 

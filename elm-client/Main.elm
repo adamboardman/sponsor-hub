@@ -285,6 +285,9 @@ update msg model =
         EnteredSurveyCommsFrequency commsFrequency ->
             surveyUpdateForm (\form -> { form | comms_frequency = commsFrequency }) model
 
+        EnteredSurveyPreRelease preRelease ->
+            surveyUpdateForm (\form -> { form | pre_release = preRelease }) model
+
         EnteredSurveyPrivacy privacy ->
             surveyUpdateForm (\form -> { form | privacy = privacy }) model
 

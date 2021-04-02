@@ -74,6 +74,7 @@ func TestStore_SurveyCreation(t *testing.T) {
 			Priorities:     "Simple priorities",
 			Issues:         "github.com/gemian/issues/2",
 			CommsFrequency: "Anything goes",
+			PreRelease: 	false,
 			Privacy:        "NayBother",
 		}
 		surveyId, _ := s.InsertSurvey(&survey)
@@ -85,6 +86,7 @@ func TestStore_SurveyCreation(t *testing.T) {
 			So(surveyLoaded.Priorities, ShouldEqual, survey.Priorities)
 			So(surveyLoaded.Issues, ShouldEqual, survey.Issues)
 			So(surveyLoaded.CommsFrequency, ShouldEqual, survey.CommsFrequency)
+			So(surveyLoaded.PreRelease, ShouldEqual, survey.PreRelease)
 			So(surveyLoaded.Privacy, ShouldEqual, survey.Privacy)
 
 			Convey("Updating the survey", func() {
@@ -99,6 +101,7 @@ func TestStore_SurveyCreation(t *testing.T) {
 					So(reloadedSurvey.Priorities, ShouldEqual, surveyLoaded.Priorities)
 					So(reloadedSurvey.Issues, ShouldEqual, surveyLoaded.Issues)
 					So(reloadedSurvey.CommsFrequency, ShouldEqual, surveyLoaded.CommsFrequency)
+					So(reloadedSurvey.PreRelease, ShouldEqual, surveyLoaded.PreRelease)
 					So(reloadedSurvey.Privacy, ShouldEqual, surveyLoaded.Privacy)
 				})
 			})
