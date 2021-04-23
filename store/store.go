@@ -27,8 +27,8 @@ func (PublicUser) TableName() string {
 type UserPermissions int
 
 const (
-	UserPermissionsUser UserPermissions = iota + 1
-	UserPermissionsEditor
+	UserPermissionsNone UserPermissions = iota + 1
+	UserPermissionsUser
 	UserPermissionsAdmin
 )
 

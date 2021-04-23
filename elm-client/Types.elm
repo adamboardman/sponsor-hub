@@ -5,7 +5,7 @@ import Browser exposing (UrlRequest)
 import Browser.Navigation as Nav
 import FormatNumber.Locales exposing (Decimals(..), Locale)
 import Http
-import Json.Decode as Decode exposing (Decoder, int, list, string, bool)
+import Json.Decode as Decode exposing (Decoder, bool, int, list, string)
 import Json.Decode.Pipeline exposing (optional, required)
 import Loading
 import Time exposing (Month)
@@ -95,7 +95,6 @@ type alias RegisterForm =
     , password_confirm : String
     , verification : String
     }
-
 
 
 type ValidatedField

@@ -49,10 +49,31 @@ func addApiRoutesToApi(a *WebApp, api *gin.RouterGroup) {
 	a.JwtMiddleware = a.InitAuth(api)
 	api.GET("/users/:userID", a.JwtMiddleware.MiddlewareFunc(), LoadUser)
 	api.PUT("/users/:userID", a.JwtMiddleware.MiddlewareFunc(), UpdateUser)
-	api.GET("/surveys", a.JwtMiddleware.MiddlewareFunc(), AdminPermissionsRequired(), SurveysList)
+	api.GET("/surveys", a.JwtMiddleware.MiddlewareFunc(), UserPermissionsRequired(), SurveysList)
 	api.GET("/surveys/:surveyID", a.JwtMiddleware.MiddlewareFunc(), LoadSurvey)
 	api.POST("/surveys", a.JwtMiddleware.MiddlewareFunc(), AddSurvey)
 	api.PUT("/surveys/:surveyID", a.JwtMiddleware.MiddlewareFunc(), UpdateSurvey)
+}
+
+func UserPermissionsRequired() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		UserPermissionsRequiredImpl(c)
+	}
+}
+
+func UserPermissionsRequiredImpl(c *gin.Context) {
+	claims := jwt.ExtractClaims(c)
+	userId := uint(claims[identityId].(float64))
+	user, err := App.Store.LoadPrivilegedUserAsSelf(userId, userId)
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"statusText": "User not found"})
+		return
+	}
+	if !(user.Permissions >= store.UserPermissionsUser) {
+		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"statusText": "User is not an user or admin"})
+		return
+	}
+	c.Next()
 }
 
 func AdminPermissionsRequired() gin.HandlerFunc {
@@ -206,7 +227,7 @@ func LoadSurvey(c *gin.Context) {
 
 	if survey.UserId != loggedInUserId {
 		var currentUser, err = App.Store.LoadUserAsSelf(loggedInUserId, loggedInUserId);
-		if err == nil && currentUser.Permissions != store.UserPermissionsAdmin {
+		if err != nil || (currentUser.Permissions != store.UserPermissionsAdmin && currentUser.Permissions != store.UserPermissionsUser) {
 			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText": fmt.Sprintf("Attempt to load someone elses survey")})
 			return
 		}
@@ -263,8 +284,11 @@ func UpdateSurvey(c *gin.Context) {
 	claims := jwt.ExtractClaims(c)
 	loggedInUserId := uint(claims["id"].(float64))
 	if survey.UserId != loggedInUserId {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText": fmt.Sprintf("Attempt to update someone elses survey")})
-		return
+		var currentUser, err = App.Store.LoadUserAsSelf(loggedInUserId, loggedInUserId);
+		if err != nil || (currentUser.Permissions != store.UserPermissionsAdmin) {
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText": fmt.Sprintf("Attempt to update someone elses survey")})
+			return
+		}
 	}
 
 	err = readJSONIntoSurvey(survey, c, true)

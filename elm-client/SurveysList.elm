@@ -1,8 +1,8 @@
 module SurveysList exposing (..)
 
 import FormValidation exposing (viewProblem)
-import Html exposing (Html, a, div, h4, text)
-import Html.Attributes exposing (href)
+import Html exposing (Html, a, div, h4, span, text)
+import Html.Attributes exposing (class, href)
 import Http exposing (emptyBody)
 import Json.Decode exposing (Decoder, list)
 import Types exposing (Model, Msg(..), Survey, authHeader, surveyDecoder)
@@ -19,16 +19,22 @@ pageSurveysList model =
 surveysSummary : Model -> Survey -> Html Msg
 surveysSummary model survey =
     div []
-        [ text survey.github_id
+        [ span [ class "survey-title" ] [ text survey.name ]
+        , text " "
+        , text survey.github_id
         , text "("
         , text (String.fromInt survey.user_id)
         , text ") "
-        , text survey.name
-        --, a [ href ("#surveys/" ++ String.fromInt survey.id ++ "/edit") ]
-        --    [ text "(edit)" ]
         , a [ href ("#surveys/" ++ String.fromInt survey.id) ]
             [ text "(view)" ]
+        , if model.loggedInUser.permissions >= 3 then
+            a [ href ("#surveys/" ++ String.fromInt survey.id ++ "/edit") ]
+                [ text "(edit)" ]
+
+          else
+            text ""
         ]
+
 
 
 -- HTTP
@@ -50,4 +56,3 @@ loadSurveys model =
 surveyListDecoder : Decoder (List Survey)
 surveyListDecoder =
     list surveyDecoder
-

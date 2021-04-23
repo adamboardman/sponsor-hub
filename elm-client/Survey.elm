@@ -22,6 +22,52 @@ surveyFieldsToValidate =
     ]
 
 
+pageViewSurvey : Model -> List (Html Msg)
+pageViewSurvey model =
+    [ div [ class "container page" ]
+        [ div [ class "row" ]
+            [ h1 [ class "text-xs-center" ] [ text "Edit Survey" ] ]
+        , div [ class "text-xs-center" ]
+            [ case model.loading of
+                On ->
+                    Loading.render Loading.DoubleBounce Loading.defaultConfig model.loading
+
+                Off ->
+                    viewSurvey model
+            ]
+        ]
+    ]
+
+
+viewSurvey : Model -> Html Msg
+viewSurvey model =
+    div []
+        [ p []
+            [ text "Name: "
+            , text model.survey.name
+            , text "("
+            , text (String.fromInt model.survey.user_id)
+            , text ") "
+            ]
+        , p [] [ text "GH: ", text model.survey.github_id ]
+        , p [ class "survey-title" ] [ text "Priorities" ]
+        , p [] [ text model.survey.priorities ]
+        , p [ class "survey-title" ] [ text "Issues" ]
+        , p [] [ text model.survey.issues ]
+        , p [ class "survey-title" ] [ text "Communications frequency" ]
+        , p [] [ text model.survey.comms_frequency ]
+        , case model.survey.pre_release of
+            True ->
+                p [ class "survey-title" ] [ text "Would like pre-release builds" ]
+
+            False ->
+                p [] [ text "" ]
+        , p [ class "survey-title" ] [ text "Privacy" ]
+        , p [] [ text model.survey.privacy ]
+        , p [ class "p-md-5" ] [ text "" ]
+        ]
+
+
 pageSurvey : Model -> List (Html Msg)
 pageSurvey model =
     [ div [ class "container page" ]
@@ -79,10 +125,11 @@ viewSurveyForm model =
             ]
         , Form.group []
             [ Form.label [ for "issues" ] [ text "Issues" ]
-            , p [ class "clarification" ] [ text "Please raise issues for each of your prioritised items. On the "
-            , a [ href "https://github.com/gemian/gemian/issues" ][ text "GitHub Issues Tracker"]
-            , text ", then use the same prioritisation schema as above. (Optional)"
-            ]
+            , p [ class "clarification" ]
+                [ text "Please raise issues for each of your prioritised items. On the "
+                , a [ href "https://github.com/gemian/gemian/issues" ] [ text "GitHub Issues Tracker" ]
+                , text ", then use the same prioritisation schema as above. (Optional)"
+                ]
             , p [ class "example" ] [ text "eg: 1. https://github.com/gemian/gemian/issues/3, 2. https://github.com/gemian/gemian/issues/5" ]
             , p [ class "example" ] [ text "or: 60% https://github.com/gemian/gemian/issues/3, 40% https://github.com/gemian/gemian/issues/5" ]
             , Textarea.textarea
@@ -109,18 +156,18 @@ viewSurveyForm model =
             [ Form.label [ for "preRelease" ] [ text "Pre-Release builds" ]
             , p [ class "clarification" ] [ text "Would you like to be invited (probably by email) to test pre-release builds." ]
             , Checkbox.checkbox
-                  [ Checkbox.id "preRelease"
-                  , Checkbox.onCheck EnteredSurveyPreRelease
-                  , Checkbox.checked model.survey.pre_release
-                  ]
-                  "Invite me to pre-release builds"
+                [ Checkbox.id "preRelease"
+                , Checkbox.onCheck EnteredSurveyPreRelease
+                , Checkbox.checked model.survey.pre_release
+                ]
+                "Invite me to pre-release builds"
             , Form.invalidFeedback [] [ text "Please enter your communications frequency preferences" ]
             ]
         , Form.group []
             [ Form.label [ for "privacy" ] [ text "Privacy" ]
             , p [ class "clarification" ] [ text "How private do you consider your donation amount to be." ]
-            , p [ class "example" ] [ text "from: you should do your best to keep it private" ]
-            , p [ class "example" ] [ text "to: I don't mind if people could work it out from viewing totals over time and seeing who recently appeared/disappeared as a sponsor." ]
+            , p [ class "example" ] [ text "Answers given so far indicate that we should not make use of the Goals feature as it shows a % progress bar to goal target thus allowing fine grained calculation of totals which could be used to figure out individual supporters sponsorship levels by noting it and additions/removals over time." ]
+            , p [ class "example" ] [ text "So you only need to answer this if you object to occasional ranged $/month totals, eg 32-64, 64-128, 128-256." ]
             , Textarea.textarea
                 [ Textarea.id "privacy"
                 , Textarea.onInput EnteredSurveyPrivacy
@@ -186,7 +233,7 @@ surveyTrimFields : Survey -> SurveyTrimmedForm
 surveyTrimFields form =
     SurveyTrimmed
         { id = form.id
-        , user_id =  form.user_id
+        , user_id = form.user_id
         , name = String.trim form.name
         , github_id = String.trim form.github_id
         , priorities = String.trim form.priorities

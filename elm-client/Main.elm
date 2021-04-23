@@ -11,13 +11,13 @@ import Loading exposing (LoadingState(..))
 import Login exposing (loggedIn, login, loginUpdateForm, loginValidate, pageLogin, userIsAdmin)
 import Ports exposing (storeExpire, storeToken)
 import Register exposing (pageRegister, register, registerUpdateForm, registerValidate)
-import Survey exposing (pageSurvey, survey, surveyUpdateForm, surveyValidate)
+import Survey exposing (pageSurvey, pageViewSurvey, survey, surveyUpdateForm, surveyValidate)
 import SurveysList exposing (loadSurveys, pageSurveysList)
 import Task
 import Time
 import Types exposing (..)
 import Url exposing (Url)
-import Url.Parser as UrlParser exposing ((</>), (<?>), Parser, s, int, top)
+import Url.Parser as UrlParser exposing ((</>), (<?>), Parser, int, s, top)
 import Url.Parser.Query as Query
 
 
@@ -111,10 +111,12 @@ menu model =
                 |> Navbar.items
                     [ if userIsAdmin model then
                         Navbar.itemLink [ href (urlForPage SurveysList) ] [ text "Surveys" ]
+
                       else
                         Navbar.itemLink [ href "" ] [ text "" ]
                     , if loggedIn model then
                         Navbar.itemLink [ href (urlForPage Logout) ] [ text "Logout" ]
+
                       else
                         Navbar.itemLink [ href (urlForPage Login) ] [ text "Login" ]
                     ]
@@ -145,7 +147,7 @@ mainContent model =
                 pageRegister model email
 
             Surveys _ ->
-                pageSurvey model
+                pageViewSurvey model
 
             SurveysEdit _ ->
                 pageSurvey model
@@ -502,7 +504,6 @@ urlUpdate url model =
 
                 NotFound ->
                     Cmd.none
-
             )
 
 
@@ -547,7 +548,7 @@ loadSurvey : String -> Int -> Cmd Msg
 loadSurvey token id =
     Http.request
         { method = "GET"
-        , url = "api/surveys/"++ String.fromInt id
+        , url = "api/surveys/" ++ String.fromInt id
         , expect = Http.expectJson LoadedSurvey surveyDecoder
         , headers = [ authHeader token ]
         , body = emptyBody
