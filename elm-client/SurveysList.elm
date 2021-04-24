@@ -5,7 +5,7 @@ import Html exposing (Html, a, div, h4, span, text)
 import Html.Attributes exposing (class, href)
 import Http exposing (emptyBody)
 import Json.Decode exposing (Decoder, list)
-import Types exposing (Model, Msg(..), Survey, authHeader, surveyDecoder)
+import Types exposing (Model, Msg(..), Survey, SurveySponsor, authHeader, surveyDecoder)
 
 
 pageSurveysList : Model -> List (Html Msg)

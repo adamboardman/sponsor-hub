@@ -53,6 +53,10 @@ func addApiRoutesToApi(a *WebApp, api *gin.RouterGroup) {
 	api.GET("/surveys/:surveyID", a.JwtMiddleware.MiddlewareFunc(), LoadSurvey)
 	api.POST("/surveys", a.JwtMiddleware.MiddlewareFunc(), AddSurvey)
 	api.PUT("/surveys/:surveyID", a.JwtMiddleware.MiddlewareFunc(), UpdateSurvey)
+	api.GET("/surveys/:surveyID/sponsors", a.JwtMiddleware.MiddlewareFunc(), LoadSurveySponsors)
+	api.POST("/surveys/:surveyID/sponsors", a.JwtMiddleware.MiddlewareFunc(), AddSurveySponsor)
+	api.DELETE("/surveys/:surveyID/sponsors/:userID", a.JwtMiddleware.MiddlewareFunc(), DeleteSurveySponsor)
+	api.GET("/sponsorable", a.JwtMiddleware.MiddlewareFunc(), SponsorableUsersList)
 }
 
 func UserPermissionsRequired() gin.HandlerFunc {
@@ -196,12 +200,60 @@ type UserJSON struct {
 
 func SurveysList(c *gin.Context) {
 	c.Header("Content-Type", "application/json")
-	surveys, err := App.Store.ListSurveys()
+
+	claims := jwt.ExtractClaims(c)
+	loggedInUserId := uint(claims["id"].(float64))
+
+	surveys, err := App.Store.ListSurveysForUserId(loggedInUserId)
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"statusText": fmt.Sprintf("Surveys not found")})
 	} else {
 		c.JSON(http.StatusOK, surveys)
 	}
+}
+
+func SponsorableUsersList(c *gin.Context) {
+	c.Header("Content-Type", "application/json")
+	sponsorableUsers, err := App.Store.ListSponsorableUsers()
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"statusText": fmt.Sprintf("No sponsorable users found")})
+	} else {
+		c.JSON(http.StatusOK, sponsorableUsers)
+	}
+}
+
+func AddSurveySponsor(c *gin.Context) {
+	surveySponsor := store.SurveySponsor{}
+
+	err := readJSONIntoSurveySponsor(&surveySponsor, c, true)
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText": fmt.Sprintf("SurveySponsor failed validation - err: %s", err.Error())})
+		return
+	}
+	if surveySponsor.SurveyId == 0 && surveySponsor.UserId != 0 {
+		claims := jwt.ExtractClaims(c)
+		loggedInUserId := uint(claims["id"].(float64))
+
+		savedSurvey, err := App.Store.LoadSurveyForUser(loggedInUserId)
+		if err == nil {
+			surveySponsor.SurveyId = savedSurvey.ID
+		} else {
+			savedSurvey.UserId = loggedInUserId
+			surveyId, err := App.Store.InsertSurvey(savedSurvey)
+			if err == nil {
+				surveySponsor.SurveyId = surveyId
+			}
+		}
+	}
+
+	surveySponsorId, err := App.Store.InsertSurveySponsor(&surveySponsor)
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText": "Insert SurveySponsor failed"})
+		return
+	}
+	c.JSON(http.StatusCreated, gin.H{
+		"status": http.StatusCreated, "message": "Added Survey Sponsor successfully", "resourceId": surveySponsorId,
+	})
 }
 
 func LoadSurvey(c *gin.Context) {
@@ -226,7 +278,7 @@ func LoadSurvey(c *gin.Context) {
 	}
 
 	if survey.UserId != loggedInUserId {
-		var currentUser, err = App.Store.LoadUserAsSelf(loggedInUserId, loggedInUserId);
+		var currentUser, err = App.Store.LoadUserAsSelf(loggedInUserId, loggedInUserId)
 		if err != nil || (currentUser.Permissions != store.UserPermissionsAdmin && currentUser.Permissions != store.UserPermissionsUser) {
 			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText": fmt.Sprintf("Attempt to load someone elses survey")})
 			return
@@ -245,6 +297,38 @@ func LoadSurvey(c *gin.Context) {
 	c.JSON(http.StatusOK, json)
 }
 
+func LoadSurveySponsors(c *gin.Context) {
+	c.Header("Content-Type", "application/json")
+	surveyId, err := strconv.Atoi(c.Param("surveyID"))
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText": "Invalid SurveyID"})
+		return
+	}
+	claims := jwt.ExtractClaims(c)
+	loggedInUserId := uint(claims["id"].(float64))
+
+	survey, err := App.Store.LoadSurvey(uint(surveyId))
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"statusText": "Survey not found"})
+		return
+	}
+	if survey.UserId != loggedInUserId {
+		var currentUser, err = App.Store.LoadUserAsSelf(loggedInUserId, loggedInUserId)
+		if err != nil || (currentUser.Permissions != store.UserPermissionsAdmin && currentUser.Permissions != store.UserPermissionsUser) {
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText": fmt.Sprintf("Attempt to load someone elses survey")})
+			return
+		}
+	}
+
+	sponsors, err := App.Store.SponsorsForSurveyId(uint(surveyId))
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"statusText": "SurveySponsors not found"})
+		return
+	}
+
+	c.JSON(http.StatusOK, sponsors)
+}
+
 func AddSurvey(c *gin.Context) {
 	survey := store.Survey{}
 
@@ -257,10 +341,22 @@ func AddSurvey(c *gin.Context) {
 	claims := jwt.ExtractClaims(c)
 	survey.UserId = uint(claims["id"].(float64))
 
-	surveyId, err := App.Store.InsertSurvey(&survey)
-	if err != nil {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText": "Insert Survey failed"})
+	if survey.ID != 0 {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText": fmt.Sprintf("Survey failed validation - ID not zero")})
 		return
+	}
+
+	savedSurvey, err := App.Store.LoadSurveyForUser(survey.UserId)
+	surveyId := savedSurvey.ID
+	if err == nil {
+		survey.ID = surveyId
+		_, err = App.Store.UpdateSurvey(&survey)
+	} else {
+		surveyId, err = App.Store.InsertSurvey(&survey)
+		if err != nil {
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText": "Insert Survey failed"})
+			return
+		}
 	}
 	c.JSON(http.StatusCreated, gin.H{
 		"status": http.StatusCreated, "message": "Survey created successfully", "resourceId": surveyId,
@@ -274,8 +370,7 @@ func UpdateSurvey(c *gin.Context) {
 		return
 	}
 
-	survey := &store.Survey{}
-	survey, err = App.Store.LoadSurvey(uint(surveyId))
+	survey, err := App.Store.LoadSurvey(uint(surveyId))
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"statusText": "Survey not found"})
 		return
@@ -284,7 +379,7 @@ func UpdateSurvey(c *gin.Context) {
 	claims := jwt.ExtractClaims(c)
 	loggedInUserId := uint(claims["id"].(float64))
 	if survey.UserId != loggedInUserId {
-		var currentUser, err = App.Store.LoadUserAsSelf(loggedInUserId, loggedInUserId);
+		var currentUser, err = App.Store.LoadUserAsSelf(loggedInUserId, loggedInUserId)
 		if err != nil || (currentUser.Permissions != store.UserPermissionsAdmin) {
 			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText": fmt.Sprintf("Attempt to update someone elses survey")})
 			return
@@ -334,4 +429,58 @@ type SurveyJSON struct {
 	CommsFrequency string
 	PreRelease     bool
 	Privacy        string
+}
+
+func readJSONIntoSurveySponsor(surveySponsor *store.SurveySponsor, c *gin.Context, forceUpdate bool) error {
+	surveyJSON := SurveySponsorJSON{}
+	err := c.BindJSON(&surveyJSON)
+	if err != nil {
+		return err
+	}
+
+	if forceUpdate || surveyJSON.ID == 0 {
+		surveySponsor.UserId = surveyJSON.UserId
+		surveyId, err := strconv.Atoi(c.Param("surveyID"))
+		if err == nil {
+			surveySponsor.SurveyId = uint(surveyId)
+		}
+	}
+
+	return nil
+}
+
+type SurveySponsorJSON struct {
+	ID       uint
+	SurveyId uint
+	UserId   uint
+}
+
+func DeleteSurveySponsor(c *gin.Context) {
+	c.Header("Content-Type", "application/json")
+	surveyId, err := strconv.Atoi(c.Param("surveyID"))
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText": fmt.Sprintf("Invalid SurveyID - err: %s", err.Error())})
+		return
+	}
+	userId, err := strconv.Atoi(c.Param("userID"))
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText": fmt.Sprintf("Invalid UserID - err: %s", err.Error())})
+		return
+	}
+	if surveyId == 0 {
+		claims := jwt.ExtractClaims(c)
+		loggedInUserId := uint(claims["id"].(float64))
+		savedSurvey, err := App.Store.LoadSurveyForUser(loggedInUserId)
+		if err == nil {
+			surveyId = int(savedSurvey.ID)
+		}
+	}
+	err = App.Store.DeleteSurveySponsor(uint(surveyId), uint(userId))
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"statusText": fmt.Sprintf("Delete SurveySponsor Failed - err: %s", err.Error())})
+	} else {
+		c.JSON(http.StatusOK, gin.H{
+			"status": http.StatusOK, "message": "SurveySponsor deleted",
+		})
+	}
 }

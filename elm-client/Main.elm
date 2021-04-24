@@ -11,7 +11,8 @@ import Loading exposing (LoadingState(..))
 import Login exposing (loggedIn, login, loginUpdateForm, loginValidate, pageLogin, userIsAdmin)
 import Ports exposing (storeExpire, storeToken)
 import Register exposing (pageRegister, register, registerUpdateForm, registerValidate)
-import Survey exposing (pageSurvey, pageViewSurvey, survey, surveyUpdateForm, surveyValidate)
+import Set
+import Survey exposing (loadSponsorableUsers, loadSponsorsForSurveys, pageSurvey, pageViewSurvey, survey, surveyUpdateForm, surveyValidate, updateServerWithSponsorState)
 import SurveysList exposing (loadSurveys, pageSurveysList)
 import Task
 import Time
@@ -67,9 +68,11 @@ init flags url key =
                 , apiActionResponse = { status = 0, resourceId = 0, resourceIds = [] }
                 , loggedInUser = emptyUser
                 , survey = emptySurvey
+                , surveyForm = emptySurveyForm
                 , timeZone = Time.utc
                 , time = Time.millisToPosix 0
                 , surveysList = []
+                , sponsorableUsers = []
                 }
     in
     ( model
@@ -246,7 +249,7 @@ update msg model =
                     )
 
         SubmittedSurveyForm ->
-            case surveyValidate model.survey of
+            case surveyValidate model.surveyForm of
                 Ok validForm ->
                     ( { model | problems = [], saving = Loading.On }
                     , survey model.session.loginToken validForm
@@ -277,6 +280,19 @@ update msg model =
 
         EnteredSurveyGitHubUserId gitHubId ->
             surveyUpdateForm (\form -> { form | github_id = gitHubId }) model
+
+        EnteredUserToAddSponsor sponsorId sponsorState ->
+            let
+                users =
+                    if sponsorState then
+                        Set.insert sponsorId model.surveyForm.sponsored_users
+
+                    else
+                        Set.filter (isNot sponsorId) model.surveyForm.sponsored_users
+            in
+            ( { model | surveyForm = (\form -> { form | sponsored_users = users }) model.surveyForm }
+            , updateServerWithSponsorState model sponsorId sponsorState
+            )
 
         EnteredSurveyPriorities priorities ->
             surveyUpdateForm (\form -> { form | priorities = priorities }) model
@@ -332,13 +348,27 @@ update msg model =
             )
 
         LoadedSurvey (Err error) ->
-            ( { model | survey = emptySurvey, loading = Loading.Off, session = sessionGivenAuthError error model }
+            ( { model | survey = emptySurvey, surveyForm = emptySurveyForm, loading = Loading.Off, session = sessionGivenAuthError error model }
             , Cmd.none
             )
 
         LoadedSurvey (Ok res) ->
-            ( { model | survey = res, loading = Loading.Off }
-            , Cmd.none
+            let
+                surveyForm =
+                    { id = res.id
+                    , user_id = res.user_id
+                    , name = res.name
+                    , github_id = res.github_id
+                    , sponsored_users = Set.empty
+                    , priorities = res.priorities
+                    , issues = res.issues
+                    , comms_frequency = res.comms_frequency
+                    , pre_release = res.pre_release
+                    , privacy = res.privacy
+                    }
+            in
+            ( { model | survey = res, surveyForm = surveyForm, loading = Loading.Off }
+            , loadSponsorableUsers model
             )
 
         LoadedSurveys (Err error) ->
@@ -350,6 +380,31 @@ update msg model =
             ( { model | surveysList = res, loading = Loading.Off }
             , Cmd.none
             )
+
+        LoadedSponsorableUsers (Err error) ->
+            ( { model | loading = Loading.Off, session = sessionGivenAuthError error model }
+            , Cmd.none
+            )
+
+        LoadedSponsorableUsers (Ok res) ->
+            ( { model | sponsorableUsers = res, loading = Loading.Off }
+            , loadSponsorsForSurveys model
+            )
+
+        LoadedSponsorsForSurvey (Err error) ->
+            ( { model | loading = Loading.Off, session = sessionGivenAuthError error model }
+            , Cmd.none
+            )
+
+        LoadedSponsorsForSurvey (Ok res) ->
+            let
+                userIds =
+                    List.map (\u -> u.user_id) res
+
+                users =
+                    Set.fromList userIds
+            in
+            surveyUpdateForm (\form -> { form | sponsored_users = users }) model
 
         GotRegisterJson result ->
             case result of
@@ -373,7 +428,7 @@ update msg model =
                         transform =
                             \form -> { form | id = res.resourceId }
                     in
-                    ( { model | apiActionResponse = res, saving = Loading.Off, survey = transform model.survey }, Cmd.none )
+                    ( { model | apiActionResponse = res, saving = Loading.Off, surveyForm = transform model.surveyForm }, Cmd.none )
 
                 Err error ->
                     let
@@ -384,6 +439,19 @@ update msg model =
                     ( { model | problems = List.append model.problems serverErrors, saving = Loading.Off, session = sessionGivenAuthError error model }
                     , Cmd.none
                     )
+
+        GotUpdateSurveyWithSponsorStateJson result ->
+            case result of
+                Ok res ->
+                    ( { model | apiActionResponse = res, saving = Loading.Off }, Cmd.none )
+
+                Err error ->
+                    let
+                        serverErrors =
+                            decodeErrors error
+                                |> List.map ServerError
+                    in
+                    ( { model | problems = List.append model.problems serverErrors, saving = Loading.Off }, Cmd.none )
 
         AdjustTimeZone zone ->
             ( { model | timeZone = zone }, Cmd.none )

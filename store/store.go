@@ -63,6 +63,18 @@ type Survey struct {
 	Privacy        string
 }
 
+type SurveySponsor struct {
+	gorm.Model
+	SurveyId uint
+	UserId   uint
+}
+
+type SponsorableUser struct {
+	ID       uint
+	Name     string
+	GitHubId string
+}
+
 type PosixDateTime time.Time
 
 func (d PosixDateTime) MarshalJSON() ([]byte, error) {
@@ -119,13 +131,16 @@ func (s *Store) StoreInit(dbName string) {
 
 	_, _ = db.DB().Exec("CREATE EXTENSION postgis;")
 
-	err = db.AutoMigrate(&User{}, &Survey{}).Error
+	err = db.AutoMigrate(&User{}, &Survey{}, &SurveySponsor{}).Error
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	//DEBUG - add/remove to investigate SQL queries being executed
 	//db.LogMode(true)
+
+	db.Model(&SurveySponsor{}).AddForeignKey("survey_id", "surveys(id)", "CASCADE", "RESTRICT")
+	db.Model(&SurveySponsor{}).AddForeignKey("user_id", "users(id)", "CASCADE", "RESTRICT")
 }
 
 func (s *Store) InsertUser(user *User) (uint, error) {
@@ -209,11 +224,47 @@ func (s *Store) LoadSurveyForUser(id uint) (*Survey, error) {
 	return &survey, err
 }
 
-func (s *Store) ListSurveys() ([]Survey, error) {
+func (s *Store) ListSurveysForUserId(id uint) ([]Survey, error) {
 	var surveys []Survey
-	err := s.db.Limit(200).Order("name").Find(&surveys).Error
+	err := s.db.Limit(200).Order("name").Where("id IN (SELECT survey_id FROM survey_sponsors WHERE user_id=?)", id).Find(&surveys).Error
 	if err != nil {
 		return nil, err
 	}
 	return surveys, err
+}
+
+func (s *Store) ListSponsorableUsers() ([]SponsorableUser, error) {
+	var users []PublicUser
+	err := s.db.Limit(200).Order("name").Where("permissions >= 2").Find(&users).Error
+	if err != nil {
+		return nil, err
+	}
+	var sponsorableUsers []SponsorableUser
+	for _, v := range users {
+		survey, err := s.LoadSurveyForUser(v.ID)
+		if err != nil {
+			sponsorableUsers = append(sponsorableUsers,
+				SponsorableUser{ID: v.ID, Name: v.Name, GitHubId: ""})
+		} else {
+			sponsorableUsers = append(sponsorableUsers,
+				SponsorableUser{ID: v.ID, Name: survey.Name, GitHubId: survey.GitHubId})
+		}
+	}
+	return sponsorableUsers, err
+}
+
+func (s *Store) InsertSurveySponsor(surveySponsor *SurveySponsor) (uint, error) {
+	err := s.db.Create(surveySponsor).Error
+	return surveySponsor.ID, err
+}
+
+func (s *Store) SponsorsForSurveyId(surveyId uint) ([]SurveySponsor, error) {
+	var surveySponsors []SurveySponsor
+	err := s.db.Where("survey_id=?", surveyId).Find(&surveySponsors).Error
+	return surveySponsors, err
+}
+
+func (s *Store) DeleteSurveySponsor(surveyId uint, userId uint) error {
+	err := s.db.Unscoped().Where("survey_id=? AND user_id=?", surveyId, userId).Delete(SurveySponsor{}).Error
+	return err
 }

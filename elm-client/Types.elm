@@ -8,6 +8,7 @@ import Http
 import Json.Decode as Decode exposing (Decoder, bool, int, list, string)
 import Json.Decode.Pipeline exposing (optional, required)
 import Loading
+import Set exposing (Set)
 import Time exposing (Month)
 import Url exposing (Url)
 
@@ -22,12 +23,14 @@ type alias Model =
     , loginForm : LoginForm
     , registerForm : RegisterForm
     , survey : Survey
+    , surveyForm : SurveyForm
     , session : Session
     , apiActionResponse : ApiActionResponse
     , loggedInUser : User
     , timeZone : Time.Zone
     , time : Time.Posix
     , surveysList : List Survey
+    , sponsorableUsers : List SponsorableUser
     }
 
 
@@ -73,6 +76,34 @@ type alias Survey =
     , comms_frequency : String
     , pre_release : Bool
     , privacy : String
+    }
+
+
+type alias SurveyForm =
+    { id : Int
+    , user_id : Int
+    , name : String
+    , sponsored_users : Set Int
+    , github_id : String
+    , priorities : String
+    , issues : String
+    , comms_frequency : String
+    , pre_release : Bool
+    , privacy : String
+    }
+
+
+type alias SurveySponsor =
+    { id : Int
+    , survey_id : Int
+    , user_id : Int
+    }
+
+
+type alias SponsorableUser =
+    { id : Int
+    , name : String
+    , github_id : String
     }
 
 
@@ -134,7 +165,11 @@ type Msg
     | LoadedUser (Result Http.Error User)
     | LoadedSurvey (Result Http.Error Survey)
     | GotUpdateSurveyJson (Result Http.Error ApiActionResponse)
+    | GotUpdateSurveyWithSponsorStateJson (Result Http.Error ApiActionResponse)
     | LoadedSurveys (Result Http.Error (List Survey))
+    | LoadedSponsorsForSurvey (Result Http.Error (List SurveySponsor))
+    | LoadedSponsorableUsers (Result Http.Error (List SponsorableUser))
+    | EnteredUserToAddSponsor Int Bool
     | AdjustTimeZone Time.Zone
     | TimeTick Time.Posix
 
@@ -275,6 +310,21 @@ emptySurvey =
     }
 
 
+emptySurveyForm : SurveyForm
+emptySurveyForm =
+    { id = 0
+    , user_id = 0
+    , name = ""
+    , sponsored_users = Set.empty
+    , github_id = ""
+    , priorities = ""
+    , issues = ""
+    , comms_frequency = ""
+    , pre_release = False
+    , privacy = ""
+    }
+
+
 
 -- DECODERS
 
@@ -313,6 +363,22 @@ surveyDecoder =
         |> required "CommsFrequency" string
         |> optional "PreRelease" bool False
         |> required "Privacy" string
+
+
+surveySponsorDecoder : Decoder SurveySponsor
+surveySponsorDecoder =
+    Decode.succeed SurveySponsor
+        |> required "ID" int
+        |> optional "SurveyId" int 0
+        |> optional "UserId" int 0
+
+
+sponsorableUserDecoder : Decoder SponsorableUser
+sponsorableUserDecoder =
+    Decode.succeed SponsorableUser
+        |> required "ID" int
+        |> optional "Name" string ""
+        |> optional "GitHubId" string ""
 
 
 posixTime : Decode.Decoder Time.Posix

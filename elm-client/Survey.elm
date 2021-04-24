@@ -6,13 +6,15 @@ import Bootstrap.Form.Checkbox as Checkbox
 import Bootstrap.Form.Input as Input
 import Bootstrap.Form.Textarea as Textarea
 import FormValidation exposing (viewProblem)
-import Html exposing (Html, a, div, h1, p, text, ul)
+import Html exposing (Html, a, div, h1, li, p, text, ul)
 import Html.Attributes exposing (class, for, href)
 import Html.Events exposing (onSubmit)
-import Http
+import Http exposing (emptyBody)
+import Json.Decode exposing (Decoder, list)
 import Json.Encode as Encode
 import Loading exposing (LoadingState(..))
-import Types exposing (ApiActionResponse, Model, Msg(..), Problem(..), Survey, User, ValidatedField(..), apiActionDecoder, authHeader)
+import Set exposing (Set)
+import Types exposing (ApiActionResponse, Model, Msg(..), Problem(..), SponsorableUser, Survey, SurveyForm, SurveySponsor, User, ValidatedField(..), apiActionDecoder, authHeader, sponsorableUserDecoder, surveySponsorDecoder)
 
 
 surveyFieldsToValidate : List ValidatedField
@@ -95,7 +97,7 @@ viewSurveyForm model =
                 [ Input.id "name"
                 , Input.placeholder "Name"
                 , Input.onInput EnteredSurveyName
-                , Input.value model.survey.name
+                , Input.value model.surveyForm.name
                 ]
             , Form.invalidFeedback [] [ text "Please enter your name" ]
             ]
@@ -106,9 +108,15 @@ viewSurveyForm model =
                 [ Input.id "gitHubId"
                 , Input.placeholder "UserID"
                 , Input.onInput EnteredSurveyGitHubUserId
-                , Input.value model.survey.github_id
+                , Input.value model.surveyForm.github_id
                 ]
             , Form.invalidFeedback [] [ text "Please enter your user id" ]
+            ]
+        , Form.group []
+            [ Form.label [] [ text "Users" ]
+            , p [ class "clarification" ] [ text "Who can view your survey, you must include anyone your sponsoring and anyone else you wish to influence" ]
+            , ul []
+                (List.map (viewSponsorableUser model.surveyForm.sponsored_users) model.sponsorableUsers)
             ]
         , Form.group []
             [ Form.label [ for "priorities" ] [ text "Priorities" ]
@@ -119,7 +127,7 @@ viewSurveyForm model =
                 [ Textarea.id "priorities"
                 , Textarea.rows 4
                 , Textarea.onInput EnteredSurveyPriorities
-                , Textarea.value model.survey.priorities
+                , Textarea.value model.surveyForm.priorities
                 ]
             , Form.invalidFeedback [] [ text "Please enter your priorities" ]
             ]
@@ -136,7 +144,7 @@ viewSurveyForm model =
                 [ Textarea.id "issues"
                 , Textarea.rows 4
                 , Textarea.onInput EnteredSurveyIssues
-                , Textarea.value model.survey.issues
+                , Textarea.value model.surveyForm.issues
                 ]
             , Form.invalidFeedback [] [ text "Please list bug tracker issues" ]
             ]
@@ -148,7 +156,7 @@ viewSurveyForm model =
             , Textarea.textarea
                 [ Textarea.id "commsFrequency"
                 , Textarea.onInput EnteredSurveyCommsFrequency
-                , Textarea.value model.survey.comms_frequency
+                , Textarea.value model.surveyForm.comms_frequency
                 ]
             , Form.invalidFeedback [] [ text "Please enter your communications frequency preferences" ]
             ]
@@ -158,7 +166,7 @@ viewSurveyForm model =
             , Checkbox.checkbox
                 [ Checkbox.id "preRelease"
                 , Checkbox.onCheck EnteredSurveyPreRelease
-                , Checkbox.checked model.survey.pre_release
+                , Checkbox.checked model.surveyForm.pre_release
                 ]
                 "Invite me to pre-release builds"
             , Form.invalidFeedback [] [ text "Please enter your communications frequency preferences" ]
@@ -171,7 +179,7 @@ viewSurveyForm model =
             , Textarea.textarea
                 [ Textarea.id "privacy"
                 , Textarea.onInput EnteredSurveyPrivacy
-                , Textarea.value model.survey.privacy
+                , Textarea.value model.surveyForm.privacy
                 ]
             , Form.invalidFeedback [] [ text "Please enter your privacy preferences" ]
             ]
@@ -184,12 +192,12 @@ viewSurveyForm model =
         ]
 
 
-surveyUpdateForm : (Survey -> Survey) -> Model -> ( Model, Cmd Msg )
+surveyUpdateForm : (SurveyForm -> SurveyForm) -> Model -> ( Model, Cmd Msg )
 surveyUpdateForm transform model =
-    ( { model | survey = transform model.survey }, Cmd.none )
+    ( { model | surveyForm = transform model.surveyForm }, Cmd.none )
 
 
-surveyValidate : Survey -> Result (List Problem) SurveyTrimmedForm
+surveyValidate : SurveyForm -> Result (List Problem) SurveyTrimmedForm
 surveyValidate form =
     let
         trimmedForm =
@@ -226,15 +234,16 @@ validateField (SurveyTrimmed form) field =
 
 
 type SurveyTrimmedForm
-    = SurveyTrimmed Survey
+    = SurveyTrimmed SurveyForm
 
 
-surveyTrimFields : Survey -> SurveyTrimmedForm
+surveyTrimFields : SurveyForm -> SurveyTrimmedForm
 surveyTrimFields form =
     SurveyTrimmed
         { id = form.id
         , user_id = form.user_id
         , name = String.trim form.name
+        , sponsored_users = form.sponsored_users
         , github_id = String.trim form.github_id
         , priorities = String.trim form.priorities
         , issues = String.trim form.issues
@@ -242,6 +251,20 @@ surveyTrimFields form =
         , pre_release = form.pre_release
         , privacy = String.trim form.privacy
         }
+
+
+viewSponsorableUser : Set Int -> SponsorableUser -> Html Msg
+viewSponsorableUser sponsoredList user =
+    li []
+        [ Form.label [ for (String.fromInt user.id) ]
+            [ Checkbox.checkbox
+                [ Checkbox.id (String.fromInt user.id)
+                , Checkbox.checked (Set.member user.id sponsoredList)
+                , Checkbox.onCheck (EnteredUserToAddSponsor user.id)
+                ]
+                (user.name ++ " (" ++ user.github_id ++ ")")
+            ]
+        ]
 
 
 
@@ -284,6 +307,77 @@ survey token (SurveyTrimmed form) =
         , url = url
         , expect = Http.expectJson GotUpdateSurveyJson apiActionDecoder
         , headers = [ authHeader token ]
+        , body = body
+        , timeout = Nothing
+        , tracker = Nothing
+        }
+
+
+loadSponsorsForSurveys : Model -> Cmd Msg
+loadSponsorsForSurveys model =
+    Http.request
+        { method = "GET"
+        , url = "api/surveys/" ++ String.fromInt model.survey.id ++ "/sponsors"
+        , expect = Http.expectJson LoadedSponsorsForSurvey sponsorsListDecoder
+        , headers = [ authHeader model.session.loginToken ]
+        , body = emptyBody
+        , timeout = Nothing
+        , tracker = Nothing
+        }
+
+
+sponsorsListDecoder : Decoder (List SurveySponsor)
+sponsorsListDecoder =
+    list surveySponsorDecoder
+
+
+loadSponsorableUsers : Model -> Cmd Msg
+loadSponsorableUsers model =
+    Http.request
+        { method = "GET"
+        , url = "api/sponsorable"
+        , expect = Http.expectJson LoadedSponsorableUsers sponsorableUsersListDecoder
+        , headers = [ authHeader model.session.loginToken ]
+        , body = emptyBody
+        , timeout = Nothing
+        , tracker = Nothing
+        }
+
+
+sponsorableUsersListDecoder : Decoder (List SponsorableUser)
+sponsorableUsersListDecoder =
+    list sponsorableUserDecoder
+
+
+updateServerWithSponsorState : Model -> Int -> Bool -> Cmd Msg
+updateServerWithSponsorState model sponsorId sponsorState =
+    let
+        body =
+            case sponsorState of
+                True ->
+                    Encode.object [ ( "userId", Encode.int sponsorId ) ]
+                        |> Http.jsonBody
+
+                False ->
+                    emptyBody
+    in
+    Http.request
+        { method =
+            case sponsorState of
+                True ->
+                    "POST"
+
+                False ->
+                    "DELETE"
+        , url =
+            case sponsorState of
+                True ->
+                    "api/surveys/" ++ String.fromInt model.surveyForm.id ++ "/sponsors"
+
+                False ->
+                    "api/surveys/" ++ String.fromInt model.surveyForm.id ++ "/sponsors/" ++ String.fromInt sponsorId
+        , expect = Http.expectJson GotUpdateSurveyWithSponsorStateJson apiActionDecoder
+        , headers = [ authHeader model.session.loginToken ]
         , body = body
         , timeout = Nothing
         , tracker = Nothing
