@@ -57,6 +57,7 @@ func addApiRoutesToApi(a *WebApp, api *gin.RouterGroup) {
 	api.POST("/surveys/:surveyID/sponsors", a.JwtMiddleware.MiddlewareFunc(), AddSurveySponsor)
 	api.DELETE("/surveys/:surveyID/sponsors/:userID", a.JwtMiddleware.MiddlewareFunc(), DeleteSurveySponsor)
 	api.GET("/sponsorable", a.JwtMiddleware.MiddlewareFunc(), SponsorableUsersList)
+	api.GET("/prereleaseusers", a.JwtMiddleware.MiddlewareFunc(), AdminPermissionsRequired(), PreReleaseUsersList)
 }
 
 func UserPermissionsRequired() gin.HandlerFunc {
@@ -219,6 +220,16 @@ func SponsorableUsersList(c *gin.Context) {
 		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"statusText": fmt.Sprintf("No sponsorable users found")})
 	} else {
 		c.JSON(http.StatusOK, sponsorableUsers)
+	}
+}
+
+func PreReleaseUsersList(c *gin.Context) {
+	c.Header("Content-Type", "application/json")
+	preReleaseUsers, err := App.Store.ListPreReleaseUsers()
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"statusText": fmt.Sprintf("No users have selected pre-release notifications found")})
+	} else {
+		c.JSON(http.StatusOK, preReleaseUsers)
 	}
 }
 

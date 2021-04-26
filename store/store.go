@@ -75,6 +75,12 @@ type SponsorableUser struct {
 	GitHubId string
 }
 
+type EmailableUser struct {
+	ID    uint
+	Name  string
+	Email string
+}
+
 type PosixDateTime time.Time
 
 func (d PosixDateTime) MarshalJSON() ([]byte, error) {
@@ -251,6 +257,26 @@ func (s *Store) ListSponsorableUsers() ([]SponsorableUser, error) {
 		}
 	}
 	return sponsorableUsers, err
+}
+
+func (s *Store) ListPreReleaseUsers() ([]EmailableUser, error) {
+	var users []PrivilegedUser
+	err := s.db.Limit(200).Order("name").Where("id IN (SELECT user_id FROM surveys WHERE pre_release IS TRUE)").Find(&users).Error
+	if err != nil {
+		return nil, err
+	}
+	var emailableUsers []EmailableUser
+	for _, v := range users {
+		survey, err := s.LoadSurveyForUser(v.ID)
+		if err != nil {
+			emailableUsers = append(emailableUsers,
+				EmailableUser{ID: v.ID, Name: v.Name, Email: v.Email})
+		} else {
+			emailableUsers = append(emailableUsers,
+				EmailableUser{ID: v.ID, Name: survey.Name, Email: v.Email})
+		}
+	}
+	return emailableUsers, err
 }
 
 func (s *Store) InsertSurveySponsor(surveySponsor *SurveySponsor) (uint, error) {

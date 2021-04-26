@@ -162,7 +162,7 @@ viewSurveyForm model =
             ]
         , Form.group []
             [ Form.label [ for "preRelease" ] [ text "Pre-Release builds" ]
-            , p [ class "clarification" ] [ text "Would you like to be invited (probably by email) to test pre-release builds." ]
+            , p [ class "clarification" ] [ text "Would you like to be invited (probably by email: ", text model.loggedInUser.email, text ") to test pre-release builds." ]
             , Checkbox.checkbox
                 [ Checkbox.id "preRelease"
                 , Checkbox.onCheck EnteredSurveyPreRelease

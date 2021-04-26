@@ -1,17 +1,28 @@
 module SurveysList exposing (..)
 
 import FormValidation exposing (viewProblem)
-import Html exposing (Html, a, div, h4, span, text)
+import Html exposing (Html, a, div, h2, h4, p, span, text)
 import Html.Attributes exposing (class, href)
 import Http exposing (emptyBody)
 import Json.Decode exposing (Decoder, list)
-import Types exposing (Model, Msg(..), Survey, SurveySponsor, authHeader, surveyDecoder)
+import Types exposing (Model, Msg(..), PreReleaseUser, Survey, SurveySponsor, authHeader, preReleaseUserDecoder, surveyDecoder)
 
 
 pageSurveysList : Model -> List (Html Msg)
 pageSurveysList model =
-    [ h4 [] [ text "Surveys" ]
+    [ p [] [ text "" ]
+    , h4 [] [ text "Surveys" ]
     , div [] (List.map (surveysSummary model) model.surveysList)
+    , p [] [ text "" ]
+    , if model.loggedInUser.permissions >= 3 then
+        div []
+            [ h2 [] [ text "Pre-Release Requested" ]
+            , p [] [ text "Remember to use BCC" ]
+            , div [] (List.map (preReleaseEmailSummary model) model.preReleaseUsers)
+            ]
+
+      else
+        text ""
     , div [] (List.map viewProblem model.problems)
     ]
 
@@ -36,6 +47,16 @@ surveysSummary model survey =
         ]
 
 
+preReleaseEmailSummary : Model -> PreReleaseUser -> Html Msg
+preReleaseEmailSummary model user =
+    div []
+        [ span [ class "survey-title" ] [ text user.name ]
+        , text " <"
+        , text user.email
+        , text ">, "
+        ]
+
+
 
 -- HTTP
 
@@ -56,3 +77,21 @@ loadSurveys model =
 surveyListDecoder : Decoder (List Survey)
 surveyListDecoder =
     list surveyDecoder
+
+
+loadPreReleaseUsers : Model -> Cmd Msg
+loadPreReleaseUsers model =
+    Http.request
+        { method = "GET"
+        , url = "api/prereleaseusers"
+        , expect = Http.expectJson LoadedPreReleaseUsers preReleaseUsersListDecoder
+        , headers = [ authHeader model.session.loginToken ]
+        , body = emptyBody
+        , timeout = Nothing
+        , tracker = Nothing
+        }
+
+
+preReleaseUsersListDecoder : Decoder (List PreReleaseUser)
+preReleaseUsersListDecoder =
+    list preReleaseUserDecoder

@@ -13,7 +13,7 @@ import Ports exposing (storeExpire, storeToken)
 import Register exposing (pageRegister, register, registerUpdateForm, registerValidate)
 import Set
 import Survey exposing (loadSponsorableUsers, loadSponsorsForSurveys, pageSurvey, pageViewSurvey, survey, surveyUpdateForm, surveyValidate, updateServerWithSponsorState)
-import SurveysList exposing (loadSurveys, pageSurveysList)
+import SurveysList exposing (loadPreReleaseUsers, loadSurveys, pageSurveysList)
 import Task
 import Time
 import Types exposing (..)
@@ -73,6 +73,7 @@ init flags url key =
                 , time = Time.millisToPosix 0
                 , surveysList = []
                 , sponsorableUsers = []
+                , preReleaseUsers = []
                 }
     in
     ( model
@@ -378,7 +379,11 @@ update msg model =
 
         LoadedSurveys (Ok res) ->
             ( { model | surveysList = res, loading = Loading.Off }
-            , Cmd.none
+            , if model.loggedInUser.permissions >= 3 then
+                loadPreReleaseUsers model
+
+              else
+                Cmd.none
             )
 
         LoadedSponsorableUsers (Err error) ->
@@ -388,6 +393,16 @@ update msg model =
 
         LoadedSponsorableUsers (Ok res) ->
             ( { model | sponsorableUsers = res, loading = Loading.Off }
+            , loadSponsorsForSurveys model
+            )
+
+        LoadedPreReleaseUsers (Err error) ->
+            ( { model | loading = Loading.Off, session = sessionGivenAuthError error model }
+            , Cmd.none
+            )
+
+        LoadedPreReleaseUsers (Ok res) ->
+            ( { model | preReleaseUsers = res, loading = Loading.Off }
             , loadSponsorsForSurveys model
             )
 

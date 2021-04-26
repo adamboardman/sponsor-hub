@@ -31,6 +31,7 @@ type alias Model =
     , time : Time.Posix
     , surveysList : List Survey
     , sponsorableUsers : List SponsorableUser
+    , preReleaseUsers : List PreReleaseUser
     }
 
 
@@ -107,6 +108,13 @@ type alias SponsorableUser =
     }
 
 
+type alias PreReleaseUser =
+    { id : Int
+    , name : String
+    , email : String
+    }
+
+
 type alias Configuration =
     { authorizationEndpoint : Url
     , clientId : String
@@ -169,6 +177,7 @@ type Msg
     | LoadedSurveys (Result Http.Error (List Survey))
     | LoadedSponsorsForSurvey (Result Http.Error (List SurveySponsor))
     | LoadedSponsorableUsers (Result Http.Error (List SponsorableUser))
+    | LoadedPreReleaseUsers (Result Http.Error (List PreReleaseUser))
     | EnteredUserToAddSponsor Int Bool
     | AdjustTimeZone Time.Zone
     | TimeTick Time.Posix
@@ -379,6 +388,14 @@ sponsorableUserDecoder =
         |> required "ID" int
         |> optional "Name" string ""
         |> optional "GitHubId" string ""
+
+
+preReleaseUserDecoder : Decoder PreReleaseUser
+preReleaseUserDecoder =
+    Decode.succeed PreReleaseUser
+        |> required "ID" int
+        |> optional "Name" string ""
+        |> optional "Email" string ""
 
 
 posixTime : Decode.Decoder Time.Posix
